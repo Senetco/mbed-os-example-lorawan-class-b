@@ -4,7 +4,6 @@
 #include "lora_radio_helper.h"
 #include "dev_eui_helper.h"
 #include "LoRaWANInterface.h"
-#include "LoRaWANGpsTimeClient.h"
 
 int app_duty_cycle = 10000;
 
@@ -16,10 +15,7 @@ static uint8_t APP_KEY[] = { 0xB5, 0xE7, 0x1B, 0x6C, 0x21, 0x70, 0x90, 0x43, 0x1
 // The port we're sending and receiving on
 #define MBED_CONF_LORA_APP_PORT     15
 
-static void lora_gps_client_send(LwGpsTimeClientSendParams &params);
 static void queue_next_send_message();
-static lorawan_time_t get_gps_time();
-static void set_gps_time(lorawan_time_t gps_time);
 
 // EventQueue is required to dispatch events around
 static EventQueue ev_queue;
@@ -27,9 +23,6 @@ static EventQueue ev_queue;
 // Constructing Mbed LoRaWANInterface and passing it down the radio object.
 static LoRaWANInterface lorawan(radio);
 
-static LwGpsTimeClient gps_time_c(lora_gps_client_send, get_gps_time, set_gps_time);
-
-static LwGpsTimeClientSendParams queued_message;
 static bool queued_message_waiting = false;
 
 
@@ -42,6 +35,7 @@ static void lora_event_handler(lorawan_event_t event);
 // Send a message over LoRaWAN
 static void send_message()
 {
+    #if 0
     if (queued_message_waiting) {
         int16_t retcode = lorawan.send(
                               queued_message._port,
@@ -60,7 +54,7 @@ static void send_message()
 
         return;
     }
-
+    #endif
 
     uint8_t tx_buffer[2] = { 1, 2 };
     int packet_len = 2;
@@ -76,33 +70,6 @@ static void send_message()
     }
 
     printf("%d bytes scheduled for transmission\n", retcode);
-}
-
-static void lora_gps_client_send(LwGpsTimeClientSendParams &params)
-{
-    queued_message = params;
-    // copy the buffer
-    queued_message._data = (uint8_t *)malloc(params._length);
-    if (!queued_message._data) {
-        printf("ERR! Failed to allocate %u bytes for queued_message!\n", params._length);
-        return;
-    }
-    memcpy(queued_message._data, params._data, params._length);
-    queued_message_waiting = true;
-
-    // will be sent in the next iteration
-}
-
-static lorawan_time_t get_gps_time(){
-    return lorawan.get_current_gps_time();
-}
-
-static void set_gps_time(lorawan_time_t gps_time){
-    lorawan.set_current_gps_time(gps_time);
-    lorawan.enable_beacon_rx();
-
-    // Slow uplink rate 
-    app_duty_cycle = 60000;
 }
 
 static void queue_next_send_message()
@@ -143,9 +110,6 @@ int main()
     callbacks.events = mbed::callback(lora_event_handler);
     lorawan.add_app_callbacks(&callbacks);
 
-    // Initialize device class client
-    gps_time_c.initialize();
-
     lorawan_connect_t connect_params;
     connect_params.connect_type = LORAWAN_CONNECTION_OTAA;
     connect_params.connection_u.otaa.dev_eui = DEV_EUI;
@@ -185,16 +149,12 @@ static void receive_message()
 
     printf("Received %d bytes on port %u\n", retcode, port);
 
-    if (port == CLOCK_SYNC_PORT) {
-        gps_time_c.handleClockSyncCommand(rx_buffer, retcode);
-    } else {
-        printf("Data received on port %d (length %d): ", port, retcode);
+    printf("Data received on port %d (length %d): ", port, retcode);
 
-        for (uint8_t i = 0; i < retcode; i++) {
-            printf("%02x ", rx_buffer[i]);
-        }
-        printf("\n");
+    for (uint8_t i = 0; i < retcode; i++) {
+        printf("%02x ", rx_buffer[i]);
     }
+    printf("\n");
 
 #if 0
     if (status != LW_UC_OK) {
@@ -211,7 +171,6 @@ static void lora_event_handler(lorawan_event_t event)
     switch (event) {
         case CONNECTED:
             printf("Connection - Successful\n");
-            gps_time_c.sendGpsTimeSyncReq();
             queue_next_send_message();
             break;
         case DISCONNECTED:
