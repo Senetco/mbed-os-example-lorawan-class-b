@@ -1,0 +1,7 @@
+buildit.sh
+mbed_settings.py
+BUILD
+__pycache__
+.vscode
+*.pyc
+
