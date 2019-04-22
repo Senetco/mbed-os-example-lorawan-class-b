@@ -7,8 +7,7 @@
 #include "platform/Callback.h"
 
 
-#define APP_DUTY_CYCLE_CLASS_A 10000
-#define APP_DUTY_CYCLE_CLASS_B 30000
+#define APP_DUTY_CYCLE         60000
 #define PING_SLOT_PERIODICITY  MBED_CONF_LORA_PING_SLOT_PERIODICITY
 
 bool ping_slot_synched = false;
@@ -79,23 +78,19 @@ static void send_message()
 
 static void queue_next_send_message()
 {
+    int backoff;
+
     if (send_queued) {
         return;
     }
 
-    int app_duty_cycle = in_class_b ? APP_DUTY_CYCLE_CLASS_B : APP_DUTY_CYCLE_CLASS_A;
-
-    if (app_duty_cycle != 0) {
-        int backoff;
-        lorawan.get_backoff_metadata(backoff);
-
-        if (backoff < app_duty_cycle) {
-            backoff = app_duty_cycle;
-        }
-        printf("Next send in %d seconds\r\n", backoff / 1000);
-        send_queued = true;
-        ev_queue.call_in(backoff, &send_message);
+    lorawan.get_backoff_metadata(backoff);
+    if (backoff < APP_DUTY_CYCLE) {
+            backoff = APP_DUTY_CYCLE;
     }
+    printf("Next send in %d seconds\r\n", backoff / 1000);
+    send_queued = true;
+    ev_queue.call_in(backoff, &send_message);
 }
 
 int main()
