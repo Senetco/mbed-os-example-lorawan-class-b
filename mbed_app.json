@@ -4,45 +4,7 @@
             "help": "Which radio to use (options: SX1272,SX1276)",
             "value": "SX1276"
         },
-        "sotp-section-1-address": {
-            "help": "Flash sector address for SOTP sector 1",
-            "macro_name": "PAL_INTERNAL_FLASH_SECTION_1_ADDRESS",
-            "value": null
-        },
-        "sotp-section-1-size": {
-            "help": "Flash sector size for SOTP sector 1",
-            "macro_name": "PAL_INTERNAL_FLASH_SECTION_1_SIZE",
-            "value": null
-        },
-        "sotp-section-2-address": {
-            "help": "Flash sector address for SOTP sector 2",
-            "macro_name": "PAL_INTERNAL_FLASH_SECTION_2_ADDRESS",
-            "value": null
-        },
-        "sotp-section-2-size": {
-            "help": "Flash sector size for SOTP sector 2",
-            "macro_name": "PAL_INTERNAL_FLASH_SECTION_2_SIZE",
-            "value": null
-        },
-        "fragmentation-bootloader-header-offset": {
-            "help": "Address in external flash where to store the header for the bootloader, needs to be erase & write sector aligned",
-            "value": "0"
-        },
-        "fragmentation-storage-offset": {
-            "help": "Address in external flash where to start storing fragments, needs to be erase & write sector aligned",
-            "value": "0x210"
-        },
-        "update-client-application-details": {
-            "help": "Location in *internal* flash to store application details (used by the combine script)",
-            "value": "0x0"
-        },
-        "flash-start-address": {
-            "help": "Start address of internal flash",
-            "value": null
-        },
-
         "main_stack_size":     { "value": 4096 },
-
         "lora-spi-mosi":       { "value": "NC" },
         "lora-spi-miso":       { "value": "NC" },
         "lora-spi-sclk":       { "value": "NC" },
@@ -67,14 +29,7 @@
     },
     "target_overrides": {
         "*": {
-            "platform.stdio-convert-newlines": true,
-            "platform.stdio-baud-rate": 115200,
-            "mbed-trace.enable": 1,
-            "lora.over-the-air-activation": true,
-            "lora.duty-cycle-on": true,
-            "lora.phy": "US915"
         },
-
         "FF1705_L151CC": {
             "lora-radio":           "SX1272",
             "lora-spi-mosi":        "LORA_MOSI",
@@ -109,19 +64,6 @@
             "lora-tcxo":            "A3",
             "lora-device-sel":      "A2",
             "lora-freq-sel":        "A1"
-        },
-        "SIMULATOR": {
-            "lorawan-update-client.max-redundancy"      : "40",
-            "lorawan-update-client.slot-size"           : "528 * 100",
-            "lorawan-update-client.slot0-header-address": "0x0",
-            "lorawan-update-client.slot0-fw-address"    : "528",
-            "lorawan-update-client.slot1-header-address": "528*100",
-            "lorawan-update-client.slot1-fw-address"    : "528*101",
-            "lorawan-update-client.slot2-header-address": "528*200",
-            "lorawan-update-client.slot2-fw-address"    : "528*201",
-            "lorawan-update-client.internal-flash-header": "0x0",
-            "lorawan-update-client.interop-testing"     : false,
-            "flash-start-address"                       : "0x0"
         }
     }
 }
