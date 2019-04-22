@@ -8,26 +8,25 @@
 
 
 #define APP_DUTY_CYCLE_CLASS_A 10000
-#define APP_DUTY_CYCLE_CLASS_B 60000
-#define PING_SLOT_PERIODICITY 4
+#define APP_DUTY_CYCLE_CLASS_B 30000
+#define PING_SLOT_PERIODICITY  MBED_CONF_LORA_PING_SLOT_PERIODICITY
 
-// Use Dish 700MHz downlink channels
-bool dish_downlink_mode = false; 
-
-int app_duty_cycle = APP_DUTY_CYCLE_CLASS_A;
-
-bool device_time_synched = false;
 bool ping_slot_synched = false;
 bool send_queued = false;
+bool in_class_b = false;
 
-uint16_t beacon_locks = 0;
-uint16_t beacon_misses = 0;
-uint16_t rx_count = 0;
+typedef struct {
+    uint16_t rx;
+    uint16_t beacon_lock;
+    uint16_t beacon_miss;
+} app_data_frame_t;
+
+app_data_frame_t app_data;
 
 // Device credentials, register device as OTAA in The Things Network and copy credentials here
-static uint8_t DEV_EUI[] = MBED_CONF_LORA_DEVICE_EUI; 
-static uint8_t APP_EUI[] = MBED_CONF_LORA_APPLICATION_EUI; 
-static uint8_t APP_KEY[] = MBED_CONF_LORA_APPLICATION_KEY; 
+static uint8_t DEV_EUI[] = MBED_CONF_LORA_DEVICE_EUI;
+static uint8_t APP_EUI[] = MBED_CONF_LORA_APPLICATION_EUI;
+static uint8_t APP_KEY[] = MBED_CONF_LORA_APPLICATION_KEY;
 
 // The port we're sending and receiving on
 #define MBED_CONF_LORA_APP_PORT     15
@@ -53,32 +52,14 @@ static void send_message()
 {
     send_queued = false;
 
-    if(!device_time_synched)
-    {
-        lorawan_status_t retcode = lorawan.add_device_time_request(); 
-        if(retcode != LORAWAN_STATUS_OK)
-        {
-            printf("Add device time request failed (%d)", retcode);
-        }
-    }
+    uint8_t tx_buffer[6];
+    tx_buffer[0] = (app_data.beacon_lock >> 8) & 0xff;
+    tx_buffer[1] = app_data.beacon_lock & 0xff;
+    tx_buffer[2] = (app_data.beacon_miss >> 8) & 0xff;
+    tx_buffer[3] = app_data.beacon_miss & 0xff;
+    tx_buffer[4] = (app_data.rx >> 8) & 0xff;
+    tx_buffer[5] = app_data.rx & 0xff;
 
-    if(!ping_slot_synched)
-    {
-        lorawan_status_t retcode = lorawan.set_ping_slot_info(PING_SLOT_PERIODICITY); 
-        if(retcode != LORAWAN_STATUS_OK)
-        {
-            printf("Set ping slot info failed (%d)", retcode);
-        }
-    }
-
-    uint8_t tx_buffer[6]; 
-    tx_buffer[0] = (beacon_locks>>8);
-    tx_buffer[1] = beacon_locks &0xff;
-    tx_buffer[2] = (beacon_misses>>8);
-    tx_buffer[3] = beacon_misses &0xff;
-    tx_buffer[4] = (rx_count>>8);
-    tx_buffer[5] = rx_count & 0xff;
-    
     int packet_len = sizeof(tx_buffer);
     printf("Sending %d bytes\n", packet_len);
 
@@ -98,17 +79,20 @@ static void send_message()
 
 static void queue_next_send_message()
 {
-    if(send_queued)
+    if (send_queued) {
         return;
+    }
 
-    if(app_duty_cycle != 0){
+    int app_duty_cycle = in_class_b ? APP_DUTY_CYCLE_CLASS_B : APP_DUTY_CYCLE_CLASS_A;
+
+    if (app_duty_cycle != 0) {
         int backoff;
         lorawan.get_backoff_metadata(backoff);
 
         if (backoff < app_duty_cycle) {
             backoff = app_duty_cycle;
         }
-        printf("Next send in %d seconds\r\n",backoff/1000);
+        printf("Next send in %d seconds\r\n", backoff / 1000);
         send_queued = true;
         ev_queue.call_in(backoff, &send_message);
     }
@@ -116,12 +100,17 @@ static void queue_next_send_message()
 
 int main()
 {
+    memset(&app_data,0,sizeof(app_data));
+
     if (get_built_in_dev_eui(DEV_EUI, sizeof(DEV_EUI)) == 0) {
         printf("read built-in dev eui: %02x %02x %02x %02x %02x %02x %02x %02x\n",
                DEV_EUI[0], DEV_EUI[1], DEV_EUI[2], DEV_EUI[3], DEV_EUI[4], DEV_EUI[5], DEV_EUI[6], DEV_EUI[7]);
     }
 
-    if (DEV_EUI[0] == 0x0 && DEV_EUI[1] == 0x0 && DEV_EUI[2] == 0x0 && DEV_EUI[3] == 0x0 && DEV_EUI[4] == 0x0 && DEV_EUI[5] == 0x0 && DEV_EUI[6] == 0x0 && DEV_EUI[7] == 0x0) {
+    if (DEV_EUI[0] == 0x0 && DEV_EUI[1] == 0x0 && 
+        DEV_EUI[2] == 0x0 && DEV_EUI[3] == 0x0 && 
+        DEV_EUI[4] == 0x0 && DEV_EUI[5] == 0x0 && 
+        DEV_EUI[6] == 0x0 && DEV_EUI[7] == 0x0) {
         printf("Set your LoRaWAN credentials first!\n");
         return -1;
     }
@@ -143,10 +132,10 @@ int main()
     connect_params.connection_u.otaa.dev_eui = DEV_EUI;
     connect_params.connection_u.otaa.app_eui = APP_EUI;
     connect_params.connection_u.otaa.app_key = APP_KEY;
-    connect_params.connection_u.otaa.nb_trials = 255;
+    connect_params.connection_u.otaa.nb_trials = MBED_CONF_LORA_NB_TRIALS;
     lorawan_status_t retcode = lorawan.connect(connect_params);
 
-    if (retcode == LORAWAN_STATUS_OK ||
+    if (retcode == LORAWAN_STATUS_OK || 
         retcode == LORAWAN_STATUS_CONNECT_IN_PROGRESS) {
     } else {
         printf("Connection error, code = %d\n", retcode);
@@ -173,6 +162,7 @@ static void receive_message()
         printf("receive() - Error code %d\n", retcode);
         return;
     }
+    app_data.rx++;
 
     printf("Received %d bytes on port %u\n", retcode, port);
 
@@ -182,8 +172,40 @@ static void receive_message()
         printf("%02x ", rx_buffer[i]);
     }
     printf("\n");
-    rx_count++;
+}
 
+lorawan_status_t enable_beacon_acquisition()
+{
+    lorawan_status_t status;
+
+    status = lorawan.enable_beacon_acquisition();
+    if (status != LORAWAN_STATUS_OK) {
+        printf("Beacon Acquisition Error - EventCode = %d\n", status);
+    } else {
+        status = lorawan.add_device_time_request();
+        if (status != LORAWAN_STATUS_OK) {
+            printf("Add device time request failed (%d)", status);
+        } else {
+            send_message();
+        }
+    }
+    return status;
+}
+
+void switch_to_class_b(void)
+{
+    lorawan_status_t status;
+
+    if (ping_slot_synched) {
+        status = lorawan.set_device_class(CLASS_B);
+        if (status == LORAWAN_STATUS_OK) {
+            in_class_b = true;
+        } else {
+            printf("Switch Device Class -> B Error - EventCode = %d\n", status);
+        }
+    } else {
+        printf("Switch Device Class -> B Error - Ping Slot Info Not Synchronized\n");
+    }
 }
 
 // Event handler
@@ -194,10 +216,16 @@ static void lora_event_handler(lorawan_event_t event)
     switch (event) {
         case CONNECTED:
             printf("Connection - Successful\n");
-            if(device_time_synched){
-                lorawan.enable_beacon_acquisition();
+            // Add PingSlotInfo MAC command. 
+            status = lorawan.set_ping_slot_info(PING_SLOT_PERIODICITY);
+            if (status != LORAWAN_STATUS_OK) {
+                printf("Set ping slot info failed (%d)", status);
             }
-            queue_next_send_message();
+            /* Enable beacon acquisition. Alternatively, acquisition could be 
+             * delayed until after device time is synchronized. For this demonstration 
+             * acquisition starts without device time set and later with it set 
+             * when/if DeviceTimeAns is received */
+            enable_beacon_acquisition();
             break;
         case DISCONNECTED:
             ev_queue.break_dispatch();
@@ -227,50 +255,44 @@ static void lora_event_handler(lorawan_event_t event)
             break;
         case DEVICE_TIME_SYNCHED:
             printf("Device Time Received from Network Server\n");
-            device_time_synched = true;
-            app_duty_cycle = APP_DUTY_CYCLE_CLASS_B;
-            status = lorawan.enable_beacon_acquisition();
-            if(status != LORAWAN_STATUS_OK){
-                printf("Beacon Acquisition Error - EventCode = %d\n", status);
-            }
             break;
         case PING_SLOT_INFO_SYNCHED:
-            printf("Ping Slot Setttings Synchronized with Network Server\n");
+            printf("Ping Slots = %u Synchronized with Network Server\n", 1 << (7 - PING_SLOT_PERIODICITY));
             ping_slot_synched = true;
-            queue_next_send_message();
+            if (!in_class_b && (app_data.beacon_lock > 0)) {
+                switch_to_class_b();
+            }
             break;
         case BEACON_NOT_FOUND:
-            beacon_misses++;
-            device_time_synched = false;
-            app_duty_cycle = APP_DUTY_CYCLE_CLASS_A;
-            queue_next_send_message();
+            app_data.beacon_miss++; // This is not accurate since acquisition can span multiple beacon periods
+            printf("Beacon Acquisition Failed\n");
+            // Restart beacon acquisition
+            enable_beacon_acquisition();
             break;
         case BEACON_FOUND:
-            beacon_locks++;
+            app_data.beacon_lock++;
+            printf("Beacon Acquisiton Success\n");
             print_received_beacon();
-            status = lorawan.set_device_class(CLASS_B);
-            if(status == LORAWAN_STATUS_OK){
-                app_duty_cycle = APP_DUTY_CYCLE_CLASS_B;
-            }
-            else{
-                printf("Switch Device Class A -> B Error - EventCode = %d\n", status);
-                device_time_synched = false;
-                app_duty_cycle = APP_DUTY_CYCLE_CLASS_A;
+            if (!in_class_b) {
+                switch_to_class_b();
             }
             break;
         case BEACON_LOCK:
+            app_data.beacon_lock++;
             print_received_beacon();
-            printf("Total Beacon Lock Count=%u\r\n", beacon_locks);
-            beacon_locks++;
+            printf("Beacon Lock Count=%u\r\n", app_data.beacon_lock);
+            if (!in_class_b) {
+                switch_to_class_b();
+            }
             break;
         case BEACON_MISS:
-            beacon_misses++;
-            printf("Total Beacon Misses=%u\r\n", beacon_misses);
+            app_data.beacon_miss++;
+            printf("Beacon Miss Count=%u\r\n", app_data.beacon_miss);
             break;
         case SWITCH_CLASS_B_TO_A:
             printf("Reverted Class B -> A\n");
-            device_time_synched = false;
-            send_message();
+            in_class_b = false;
+            enable_beacon_acquisition();
             break;
         default:
             MBED_ASSERT("Unknown Event");
@@ -279,17 +301,17 @@ static void lora_event_handler(lorawan_event_t event)
 
 void print_received_beacon()
 {
-    lorawan_beacon_t beacon;
+    loramac_beacon_t beacon;
     lorawan_status_t status;
 
-    status = lorawan.get_received_beacon(beacon);
-    if(status != LORAWAN_STATUS_OK){
-        printf("Get Received Beacon Error - EventCode = %d\n",status);
+    status = lorawan.get_last_rx_beacon(beacon);
+    if (status != LORAWAN_STATUS_OK) {
+        printf("Get Received Beacon Error - EventCode = %d\n", status);
     }
 
     printf("\nReceived Beacon Time=%lu, GwSpecific=", beacon.time);
-    for(uint8_t i=0; i< sizeof(beacon.gw_specific); i++){
-        printf("%02X",beacon.gw_specific[i]);
+    for (uint8_t i = 0; i < sizeof(beacon.gw_specific); i++) {
+        printf("%02X", beacon.gw_specific[i]);
     }
     printf("\n");
 
