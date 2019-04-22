@@ -29,6 +29,11 @@
     },
     "target_overrides": {
         "*": {
+            "platform.stdio-convert-newlines": true,
+            "platform.stdio-baud-rate": 115200,
+            "mbed-trace.enable": 1,
+            "lora.version": 1,
+            "lora.over-the-air-activation": true
         },
         "FF1705_L151CC": {
             "lora-radio":           "SX1272",
