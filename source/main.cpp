@@ -6,13 +6,13 @@
 #include "LoRaWANInterface.h"
 #include "platform/Callback.h"
 
-
-#define APP_DUTY_CYCLE         60000
-#define PING_SLOT_PERIODICITY  MBED_CONF_LORA_PING_SLOT_PERIODICITY
-
 bool ping_slot_synched = false;
 bool send_queued = false;
 bool in_class_b = false;
+bool beacon_acquisition = false;
+
+#define APP_DUTY_CYCLE         beacon_acquisition ? 60000 : 15000
+#define PING_SLOT_PERIODICITY  MBED_CONF_LORA_PING_SLOT_PERIODICITY
 
 typedef struct {
     uint16_t rx;
@@ -127,6 +127,7 @@ int main()
     connect_params.connection_u.otaa.dev_eui = DEV_EUI;
     connect_params.connection_u.otaa.app_eui = APP_EUI;
     connect_params.connection_u.otaa.app_key = APP_KEY;
+    connect_params.connection_u.otaa.nwk_key = APP_KEY;
     connect_params.connection_u.otaa.nb_trials = MBED_CONF_LORA_NB_TRIALS;
     lorawan_status_t retcode = lorawan.connect(connect_params);
 
@@ -212,6 +213,7 @@ static void lora_event_handler(lorawan_event_t event)
         case CONNECTED:
             printf("Connection - Successful\n");
             // Add PingSlotInfo MAC command. 
+            MBED_STATIC_ASSERT(PING_SLOT_PERIODICITY <= 7, "Valid Ping Slot Periodicity values are 0 to 7");
             status = lorawan.set_ping_slot_info(PING_SLOT_PERIODICITY);
             if (status != LORAWAN_STATUS_OK) {
                 printf("Set ping slot info failed (%d)", status);
