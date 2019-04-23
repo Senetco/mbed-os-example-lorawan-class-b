@@ -4,7 +4,8 @@ compliant with LoRaWAN v1.0.3 specification.
 * [LoRaWAN Specification V1.0.3](https://lora-alliance.org/resource-hub/lorawantm-specification-v103).
 
 ## Getting started
-This application can work with any Network Server if you have correct credentials for said Network Server. The Mbed-OS LoRaWAN Class B implementation was developed and tested against the **Senet LoRaWAN Network**[https://www.senetco.com]
+This application can work with any Network Server if you have correct credentials for said Network Server. 
+The LoRaWAN Class B implementation was developed and tested against the **Senet LoRaWAN Network**[https://www.senetco.com]
 
 ## Target configuration
 This application runs on any Mbed-enabled development board, but requires some configuration. See the [porting guide](docs/porting-guide.md) for more information.
