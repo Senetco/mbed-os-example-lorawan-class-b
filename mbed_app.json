@@ -1,7 +1,7 @@
 {
     "config": {
         "lora-radio": {
-            "help": "Which radio to use (options: SX1272,SX1276)",
+            "help": "Which radio to use (options: SX1272,SX1276, SX126X)",
             "value": "SX1276"
         },
         "main_stack_size":     { "value": 4096 },
@@ -29,11 +29,8 @@
     },
     "target_overrides": {
         "*": {
-            "platform.stdio-convert-newlines": true,
-            "platform.stdio-baud-rate": 115200,
-            "mbed-trace.enable": 1,
             "lora.version": 1,
-            "lora.over-the-air-activation": true
+            "lora.class-b": true
         },
         "FF1705_L151CC": {
             "lora-radio":           "SX1272",
