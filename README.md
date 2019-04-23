@@ -4,8 +4,7 @@ compliant with LoRaWAN v1.0.3 specification.
 * [LoRaWAN Specification V1.0.3](https://lora-alliance.org/resource-hub/lorawantm-specification-v103).
 
 ## Getting started
-This application can work with any Network Server if you have correct credentials for said Network Server. 
-The Mbed-OS LoRaWAN Class B implementation was developed and tested against the **Senet LoRaWAN network**[https://www.senetco.com]
+This application can work with any Network Server if you have correct credentials for said Network Server. The Mbed-OS LoRaWAN Class B implementation was developed and tested against the **Senet LoRaWAN Network**[https://www.senetco.com]
 
 ## Target configuration
 This application runs on any Mbed-enabled development board, but requires some configuration. See the [porting guide](docs/porting-guide.md) for more information.
@@ -93,8 +92,9 @@ For optimized builds you can build without the RTOS enabled, with newlib-nano, a
 
 ## Module support
 Here is a nonexhaustive list of boards and modules tested with Mbed OS LoRaWAN stack Class B operation
-* NucleoL476RG + SX1276MB1LAS Mbed radio shield
-* NucleoL073RZ + SX1276MBILAS Mbed radio shield
+* NucleoL476RG + Mbed radio shield (SX1276MB1LAS or SX1262MB2xAS) 
+* NucleoL073RZ + Mbed radio shield (SX1276MB1LAS or SX1262MB2xAS) 
+* L-TEK FF1705
 
 ## Known Issues
 *  No RX1 receptions with optimized build and SX1262 radio shield.  
