@@ -98,5 +98,5 @@ Here is a nonexhaustive list of boards and modules tested with Mbed OS LoRaWAN s
 * L-TEK FF1705
 
 ## Known Issues
-*  No RX1 receptions with optimized build and SX1262 radio shield.  
-*  No Multicast Ping Slot support (Coming soon) 
+*  No RX1 receptions with SX1262 radio shield. 
+    * I have observed this issue on all optimized builds, and frequently with unoptimized ones. If I were to guess, this might be caused by uninitialized variables in the radio driver and their randomly changing state between builds is affecting the RX1 configuration.
