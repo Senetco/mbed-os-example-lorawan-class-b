@@ -65,24 +65,19 @@ Selection of a specific PHY layer happens at compile time. By default, the Mbed 
 
         "lora.ping-slot-periodicity": 4 
 
-* Class B Scheduling Debug Tracing 
-    * Enable debug tracing of Beacon and Ping slot scheduling
-
-    For example, to enable extra beacon and ping slot debug trace:
-
-        "lora.class-b-extra-debug-trace-level": 2
-
-## Build this application 
+## Build the application 
 1. Build this application via:
 
     ```
     $ mbed compile -m auto -t YOUR_TOOLCHAIN --profile=./mbed-os/tools/profiles/debug.json
     ```
 
-1. Drag `BUILD/YOUR_TARGET/GCC_ARM-TINY/mbed-os-example-lorawan-class-b.bin` onto your development board (mounts as flash storage device).
+1. Drag `BUILD/YOUR_TARGET/GCC_ARM-DEBUG/mbed-os-example-lorawan-class-b.bin` onto your development board (mounts as flash storage device).
 1. When flashing is complete, attach a serial monitor on baud rate 115,200.
 
-For optimized builds you can build without the RTOS enabled, with newlib-nano, and a different printf library. Some background is in [this blog post](https://os.mbed.com/blog/entry/Reducing-memory-usage-with-a-custom-prin/). To do this:
+For devices with limited flash memory, you can build without the RTOS enabled, with newlib-nano, 
+and a different printf library. Some background is in [this blog post](https://os.mbed.com/blog/entry/Reducing-memory-usage-with-a-custom-prin/). 
+To do this:
 
 1. Rename `.mbedignore_no_rtos` to `.mbedignore`.
 1. Build with:
@@ -99,4 +94,4 @@ Here is a nonexhaustive list of boards and modules tested with Mbed OS LoRaWAN s
 
 ## Known Issues
 *  No RX1 receptions with SX1262 radio shield. 
-    * I have observed this issue on all optimized builds, and frequently with unoptimized ones. If I were to guess, this might be caused by uninitialized variables in the radio driver and their randomly changing state between builds is affecting the RX1 configuration.
+    * I have observed this issue on all flash optimized builds, and frequently with unoptimized ones. If I were to guess, this might be caused by uninitialized radio driver variables. 
