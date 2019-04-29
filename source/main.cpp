@@ -1,4 +1,5 @@
 #include "mbed.h"
+
 #include "mbed_trace.h"
 #include "mbed_events.h"
 #include "lora_radio_helper.h"
@@ -14,6 +15,7 @@ bool beacon_found = false;
 
 #define APP_DUTY_CYCLE         (device_time_synched && ping_slot_synched) ? 60000 : 10000
 #define PING_SLOT_PERIODICITY  MBED_CONF_LORA_PING_SLOT_PERIODICITY
+#define PRINT_GPS_TIME_INTERVAL 60000
 
 MBED_STATIC_ASSERT(PING_SLOT_PERIODICITY <= 7, "Valid Ping Slot Periodicity values are 0 to 7");
 
@@ -67,7 +69,6 @@ static void send_message()
 
     int16_t retcode = lorawan.send(MBED_CONF_LORA_APP_PORT, tx_buffer, packet_len, MSG_UNCONFIRMED_FLAG);
 
-    // for some reason send() returns -1... I cannot find out why, the stack returns the right number. I feel that this is some weird Emscripten quirk
     if (retcode < 0) {
         retcode == LORAWAN_STATUS_WOULD_BLOCK ? printf("send - duty cycle violation\n")
         : printf("send() - Error code %d\n", retcode);
@@ -91,9 +92,15 @@ static void queue_next_send_message()
     if (backoff < APP_DUTY_CYCLE) {
         backoff = APP_DUTY_CYCLE;
     }
+
     printf("Next send in %d seconds\r\n", backoff / 1000);
     send_queued = true;
     ev_queue.call_in(backoff, &send_message);
+}
+
+
+void print_gps_time(){
+    printf("Current GPS Time = %llu\n",lorawan.get_current_gps_time());
 }
 
 int main()
@@ -143,6 +150,8 @@ int main()
 
     printf("Connection - In Progress ...\r\n");
 
+    ev_queue.call_every(PRINT_GPS_TIME_INTERVAL, &print_gps_time);
+
     // make your event queue dispatching events forever
     ev_queue.dispatch_forever();
 
@@ -190,8 +199,6 @@ lorawan_status_t enable_beacon_acquisition()
         printf("Add device time request Error - EventCode = %d", status);
     }
 
-    send_message();
-
     return status;
 }
 
@@ -203,10 +210,10 @@ void switch_to_class_b(void)
         status = lorawan.set_device_class(CLASS_B);
         if (status == LORAWAN_STATUS_OK) {
             class_b_on = true;
-            /* Uplink frames in class B mode have a frame ctrl bit set that signals
-               the Network Server the device switched to Cass B and is now ready to 
-               receive scheduled downlink pings, so schedule an uplink now.*/
-            ev_queue.call_in(1000, &send_message);
+            // Send uplink now to notify server device is class B
+            uint8_t dummy_value;
+            lorawan.send(MBED_CONF_LORA_APP_PORT, &dummy_value, 1, MSG_UNCONFIRMED_FLAG);
+
         } else {
             printf("Switch Device Class -> B Error - EventCode = %d\n", status);
         }
@@ -228,13 +235,14 @@ static void lora_event_handler(lorawan_event_t event)
             }
             // Enable beacon acquisition.
             enable_beacon_acquisition();
+            send_message();
             break;
         case DISCONNECTED:
             ev_queue.break_dispatch();
             printf("Disconnected Successfully\n");
             break;
         case TX_DONE:
-            printf("Message Sent to Network Server\n");
+            printf("Message sent to Network Server\n");
             queue_next_send_message();
             break;
         case TX_TIMEOUT:
@@ -256,7 +264,7 @@ static void lora_event_handler(lorawan_event_t event)
             printf("OTAA Failed - Check Keys\n");
             break;
         case DEVICE_TIME_SYNCHED:
-            printf("Device Time Received from Network Server\n");
+            printf("Device Time received from Network Server\n");
             device_time_synched = true;
             break;
         case PING_SLOT_INFO_SYNCHED:
